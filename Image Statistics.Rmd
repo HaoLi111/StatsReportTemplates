@@ -1,0 +1,199 @@
+---
+title: "Image statistics data-volcano"
+author: "Hao Li"
+date: "3/21/2020"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Load data and x,y base scale
+
+```{r xyBaseScale}
+#?volcano
+nr = nrow(volcano);nc = ncol(volcano)
+dr =10;dc = 10
+rbase = seq(from = 0, by = dr,length.out = nr)
+cbase = seq(from = 0, by = dc,length.out = nc)
+
+```
+
+
+
+## Overview
+
+Summary of magnitude.
+
+```{r summaryMagnitude}
+hist(volcano,prob = T);lines(density(volcano),lty = 2,col = "green");grid();abline(v=mean(volcano),col = 'red',lty=2,lwd=2)
+text(mean(volcano),y=0.002,mean(volcano),col = 'red')
+abline(v = median(volcano),col='blue',lty=3,lwd=2)
+text(median(volcano),y=0,median(volcano),col = 'blue')
+abline(v = quantile(volcano,c(.25,.75)),col = 'orange',lty = 4,lwd=2)
+#rug(volcano,lwd = .1)
+abline(v = quantile(volcano,c(.05,.95)),col = 'purple',lty = 5,lwd=2)                       
+
+summary(as.vector(volcano))
+```
+
+### Col-sum and Row-sum
+```{r colSumRowSum}
+layout(1:2)
+plot(rbase,rowSums(volcano),xlab = "")
+plot(colSums(volcano))
+layout(1)
+```
+
+
+### Slice from x and y direction
+
+```{r xySlice,echo = FALSE}
+matplot(rbase,volcano,type = 'l',xlab = 'Rowwise metric');grid()
+abline(h = mean(volcano),col = 'red')
+abline(h  = median(volcano),col = 'blue')
+abline(h = quantile(volcano,c(.25,.75)),col = 'orange',lty = 4,lwd=2)
+abline(h = quantile(volcano,c(.05,.95)),col = 'purple',lty = 5,lwd=2)
+title("W.R.T. Rowise measure,height")
+
+matplot(cbase,t(volcano),type = 'l',xlab = 'Columnwise metric');grid()
+abline(h = mean(volcano),col = 'red')
+abline(h  = median(volcano),col = 'blue')
+abline(h = quantile(volcano,c(.25,.75)),col = 'orange',lty = 4,lwd=2)
+abline(h = quantile(volcano,c(.05,.95)),col = 'purple',lty = 5,lwd=2)
+title("W.R.T. Columnwise measure,height")
+```
+
+## From Top contour, filled contour and image
+
+```{r BirdsEye}
+plot_BirdsEye = function(x,y,z){
+  contour(x,y,z,main = "Contour");grid()
+  image(x,y,z,main = "Image");grid()
+  filled.contour(x,y,z,main = "Filled Contour")
+}
+plot_BirdsEye(rbase,cbase,volcano)
+```
+
+### Perspective view
+
+```{r}
+plot3D::image2D(volcano,rbase,cbase)
+grid()
+
+plot3D::contour2D(volcano,rbase,cbase)
+plot3D::image2D(volcano,rbase,cbase,add=T,alpha = .4)
+grid()
+
+plot3D::contour2D(volcano,rbase,cbase)
+grid()
+
+
+view_angle = list(c(phi=40,theta=40),#default
+                  c(phi = 40,theta =130),
+                  c(phi = 40,theta = 220),
+                  c(phi = 40,theta = 310),
+                  c(phi=-40,theta=40),#default
+                  c(phi = -40,theta =130),
+                  c(phi = -40,theta = 220),
+                  c(phi = -40,theta = 310))
+
+for(i in 1:length(view_angle)){
+  phi=view_angle[[i]]['phi']
+  theta = view_angle[[i]]['theta']
+  plot3D::persp3D(rbase,cbase,volcano,alpha = .5,
+                  phi=phi,theta = theta)
+
+if(is.finite(min(volcano))) plot3D::contour3D(rbase,cbase,z=min(volcano),colvar = volcano,add = T,phi=phi,theta = theta)
+if(is.finite(max(volcano))) plot3D::contour3D(rbase,cbase,z=max(volcano),colvar = volcano,add = T,phi=phi,theta = theta)
+}
+```
+
+### Mesh of x and y
+```{r mesh}
+require(misc3d)
+require(plot3D)
+m = mesh(rbase,cbase)
+str(m)
+```
+
+Find the min and max on m
+
+```{r whichMinMax}
+paste("Maximum:",max(volcano))
+
+(i_max = which.max(volcano))# index of the maximum element
+"where x = "
+(x_max = m$x[i_max])# corresponding x value for maximum
+"y = "
+(y_max = m$y[i_max])# corresponding y value for maximum
+
+paste("Minimum:",min(volcano))
+(i_min = which.min(volcano))# index of the minimum element
+"where x = "
+(x_min = m$x[i_min])# corresponding x value for minimum
+"y = "
+(y_min = m$y[i_min])# corresponding y value for minimum
+
+plot3D::contour2D(volcano,rbase,cbase,main = "Min;Max")
+#plot3D::image2D(volcano,rbase,cbase,add=T,alpha = .25)
+#Locatemax
+abline(h = y_max, col = 'red',lty = 2,lwd = 2)
+abline(v = x_max, col = 'red',lty = 2, lwd = 2)
+points(x_max,y_max,col = 'red',pch =1)
+#min
+abline(h = y_min,col = 'blue',lty = 3,lwd = 2)
+abline(v = x_min,col = 'blue',lty = 3,lwd = 2)
+points(x_min,y_min,col = 'blue',pch = 2)
+grid()
+
+```
+
+## Gradient, with anology to multivariable functions and derivatives
+
+### W.r.t. x
+
+$$\frac{\partial z}{\partial x}(x,y) \simeq \frac{\Delta z }{\Delta x}|_{(x,y)}$$
+$$\frac{\partial z}{\partial y}(x,y) \simeq \frac{\Delta z }{\Delta y}|_{(x,y)}$$
+Hence visualize \(\nabla z|_{(x,y)}\)
+
+```{r dydx}
+mx_dx= (m$x[1:(nr-1),]+m$x[2:nr,])/2
+my_dx = (m$y[1:(nr-1),]+m$y[2:nr,])/2
+mx_dy = (m$x[,1:(nc-1)]+m$x[,2:nc])/2
+my_dy = (m$y[,1:(nc-1)]+m$y[,2:nc])/2
+
+dzdx = volcano[2:nr,] - volcano[1:(nr-1),]
+dzdy = volcano[,2:nc] - volcano[,1:(nc-1)]
+plot3D::image2D(dzdx,mx_dx[,1],my_dx[1,],main = "Slope in x-direction")
+plot3D::persp3D(mx_dx,my_dx,dzdx,main = "Slope in x-direction")
+
+plot3D::image2D(dzdy,mx_dy[,1],my_dy[1,],main = "Slope in y-direction")
+plot3D::persp3D(mx_dy,my_dy,dzdy,main = "Slope in y-direction")
+
+nablaz_x = (dzdx[,1:(nc-1)]+dzdx[,2:nc])/2
+nablaz_y = (dzdy[1:(nr-1),]+dzdy[2:nr,])/2
+m_x = (mx_dx[,1:(nc-1)]+mx_dx[,2:nc])/2
+m_y = (my_dy[1:(nr-1),]+my_dy[2:nr,])/2
+
+
+image2D(sqrt(nablaz_x^2+nablaz_y^2),m_x[,1],m_y[1,],main = "Estimated maximum slope with  direction, on magnitude of slope",alpha = .5)
+contour2D(sqrt(nablaz_x^2+nablaz_y^2),m_x[,1],m_y[1,],add = T,col = 'black')
+require(OceanView)
+vectorplot(nablaz_x,nablaz_y,m_x,m_y,col = "black",add = T)
+
+
+image2D(volcano,rbase,cbase,main = "Estimated maximum slope with direction, on origional",alpha = .5)
+contour2D(volcano,rbase,cbase,add = T,col = 'black')
+vectorplot(nablaz_x,nablaz_y,m_x,m_y,col = "black",add = T)
+
+
+image2D(sqrt(nablaz_x^2+nablaz_y^2),m_x[,1],m_y[1,],main = "maximum slope with direction, color-magnitude of slope,contour-origional",alpha = .5)
+contour2D(volcano,rbase,cbase,add = T,col = 'black')
+vectorplot(nablaz_x,nablaz_y,m_x,m_y,col = "black",add = T)
+
+
+
+```
+

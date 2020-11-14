@@ -1,0 +1,416 @@
+---
+title: "Time Series Analysis"
+author: "Hao Li"
+date: "2/19/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Time Analysis sample code Rmd template
+
+
+# Seasonality
+
+Template for seasonality effect analysis with Holt-Winter model. With r
+
+
+```{r forcastSetting}
+nf=11#n of forcast
+```
+## Seasonal Plot
+
+### Linear seasonal plot
+
+```{r seasPlot,echo = FALSE}
+n = length(UKgas)
+
+m = matrix(as.matrix(UKgas),nrow = 4)
+matplot(1:4,m,type = 'l',xlab = "Seasons", ylab =paste( "Seasonal value of ",deparse(substitute(UKgas))))
+
+```
+
+
+### Perspective Plot
+
+```{r perspective}
+persp(x=1:4,y=(1:(as.integer(n/4))),z = m,xlab = "Seasons", ylab ="Trend", zlab =paste( "Seasonal value of ",deparse(substitute(UKgas))) )
+
+```
+
+
+```{r perspPlot3D}
+library(plot3D)
+
+Mesh = mesh(1:4,(1:as.integer(n/4)))
+Mesh
+
+plot3D::surf3D(Mesh$x,Mesh$y,m,alpha = .5,main = "Seasonal 3D View")
+
+
+vx = as.vector(Mesh$x) ; vy = as.vector(Mesh$y); vz = as.vector(m)
+
+#yMesh<-zMesh<-matrix(NA,nrow)
+
+
+
+t = 1:length(UKgas)
+r = as.vector(UKgas)
+z = r*cos(t)
+x = r*sin(t)
+y = t
+lines3D(x,y,z,main = "Cylindrical view of seasonal data")
+
+
+```
+
+### Polar Seasonal Plot
+
+
+```{r polarSeasonal}
+
+library(ggplot2)
+#install.packages("forecast")
+library(forecast)
+ggseasonplot(UKgas,polar = F)
+ggseasonplot(UKgas,polar = T)
+
+```
+
+
+## Decomposition
+
+```{r, echo = FALSE}
+
+dts_add =  decompose(UKgas,type ="additive")
+plot(dts_add);grid()
+
+plot(dts_add$figure,ylab = "Seasonality index",main  = "Seasonality of the additive model", type = 'b',pty = 5);grid()
+dts_mul = decompose(UKgas,type = "multiplicative")
+plot(dts_add$figure,ylab = "Seasonality index",main  = "Seasonality of the multiplicative model", type = 'b');grid()
+plot(dts_mul);grid()
+
+
+```
+
+
+## 2 Holt-Winter model (Ets model)
+
+```
+```
+
+
+### Addictive trend, addictive seasonality
+
+### Addictive trend, multiplicative seasonality
+
+### Multiplicative trend, addictive seasonality
+
+### Multiplicative trend, multiplicative seasonality
+
+# Lag
+
+```{r}
+
+n=length(UKgas)
+t=seq(1,n,1)
+#2. Data manipulation
+#repeat for Autoregression involving 1:3 previous terms
+#(to avoid copying and pasting lag1=...,fit1...)
+
+UKgasdf = data.frame(t=t,UKgas=UKgas)
+UKgasdf = within(UKgasdf,{
+  for(i in 1:3) assign(paste0('lag',i),c(rep(NA,i),UKgas[1:(n-i)]))#assign lag1:lag3
+  remove(i)
+})
+require(ggplot2)
+ggplot(data = UKgasdf,aes(x = lag1,y = UKgas)) + geom_point(alpha = .4) + geom_rug(alpha = .4)
+ggplot(data = UKgasdf,aes(x = lag2,y = UKgas)) + geom_point(alpha = .4) + geom_rug(alpha = .4)
+ggplot(data = UKgasdf,aes(x = lag3,y = UKgas)) + geom_point(alpha = .4) + geom_rug(alpha = .4)
+
+require(plot3D)
+plot3D::scatter3D(UKgasdf$lag2,UKgasdf$lag1,UKgasdf$UKgas)
+```
+
+```{r}
+fit1 = lm(UKgas~t+lag1,data=UKgasdf)
+fit2 = lm(UKgas~t+lag1+lag2,data = UKgasdf)
+fit3 = lm(UKgas~t+lag1+lag2+lag3,data = UKgasdf)
+require(visreg)
+print("1 lag model")
+summary(fit1)
+visreg::visreg(fit1)
+visreg2d(fit2,xvar = 't',yvar = 'lag1',plot.type = "persp")
+print("2 lag model")
+summary(fit2)
+visreg2d(fit2,xvar = 'lag1',yvar = 'lag2',plot.type = "persp")
+#visreg2d
+print("3 lag model")
+summary(fit3)
+visreg2d(fit3,xvar = 'lag1',yvar = 'lag2',plot.type = "persp")
+visreg2d(fit3,xvar = 'lag2',yvar = 'lag3',plot.type = "persp")
+visreg2d(fit3,xvar = 'lag1',yvar = 'lag3',plot.type = "persp")
+```
+
+### Residuals
+
+```{r,echo = FALSE}
+UKgasdf
+UKgasdf = within(UKgasdf,{
+  for(i in 1:3) assign(paste0('fit',i),c(rep(NA,i),predict.lm(eval(parse(text = paste0('fit',i))))))#assign lag1:lag3
+  remove(i)
+})
+print(head(UKgasdf))
+
+```
+
+
+```{r}
+UKgasdf =within(UKgasdf,{
+  for(i in 1:3) assign(paste0('res',i),UKgas - get(paste0('fit',i)))#assign lag1:lag3
+  remove(i)
+})
+#UKgasdf
+head(UKgasdf)
+layout(1)
+UKgaspred = c('UKgas','fit1','fit2','fit3')
+matplot(x=UKgasdf[,'t'],y=UKgasdf[,UKgaspred],type = c('h','l','l','l'),lty = 1:4,col =1:4,
+        xlab = 't',ylab = 'value')
+grid()
+legend(0,9,legend = UKgaspred,lwd=2,col = 1:4,lty = 1:4)
+
+#layout(1:3)
+for(i in 1:3) hist(UKgasdf[,as.character(paste0('res',i))],xlab =  paste0('residual',i),main = paste0('residual',i))
+layout(1)
+sd_error=numeric(3)
+for(i in 1:3) sd_error[i] = sd(UKgasdf[,as.character(paste0('res',i))],na.rm =T)
+plot(c(1:3), sd_error,
+     xlab = 'No. of previous terms(complexity)',ylab = 'SD of residual',type = 'b')
+#plot shows how residuals get lowered at the expense of greater complexity
+print("Does residuals get lowered at the expense of greater complexity?")
+
+```
+
+
+
+```{r}
+#uncomment the code below to avoid copying and pasting
+#!!!Note that this is usually not encouraged because it is unintuitive
+#(to avoid copying and pasting lag1=...,fit1...)
+#for(i in 1:3){
+#  indp = paste0('lag',1:i)
+#  sapply(indp,paste,sep = "+")
+#  assign(paste0('fit',i),lm(as.formula(paste('UKgas ~ t +',indp))))
+#}
+#  for(i in 1:3) print(summary(eval(parse(text = paste0('fit',i)))))
+
+
+# plot autocovariance function for these residuals
+#require(graphics)
+#layout(1:3)
+for(i in 1:3) acf(UKgasdf[(i+1):nrow(UKgasdf),paste0('res',i)])
+#acf(e1)
+
+
+# forecast UKgas for May 1990
+for(i in 1:3) {
+  assign(paste0('coef',i),coef(get(paste0('fit',i))))
+ print(get(paste0('coef',i)))
+ }
+
+t2=seq(1,n+nf,1)
+
+for(i in 1:3){
+  #for every model
+  UKgasf = c(as.vector(UKgas),numeric(nf))
+  #for(k in 1:i){
+   #   #for every lag
+    #  coeflag = c(coeflag,get(paste0('coef',k))[paste0('lag',k)])
+    #}
+  for(j in n+1:nf){
+    #for every ts term
+    
+
+    #UKgasflag = NULL
+    #for(k in 1:i){
+      #for every lag
+    UKgasflag= UKgasf[(j-i):(j-1)]
+    UKgasf[j] = sum(get(paste0('coef',i))*c(1,t2[j],UKgasflag))
+  }
+  assign(paste0('UKgasf',i),UKgasf)
+  #fit2 = numeric(length(UKgasf))
+  #for(j in n+i:nf){
+  #  fit2[j] = sum(get(paste0('coef',i))*c(1,t2[j],UKgasf[(j-i+1):(j)]))
+  #}
+  assign(paste0('fit2_',i),fit2)
+}
+#layout(1:3)
+for(i in 1:3){
+  plot(t2,get(paste0('UKgasf',i)),ylab=paste0('fit2_',i), type ='b')
+  points(t,UKgas,col = 'red')
+  abline(v = n)
+}
+
+layout(1)
+UKgaspred = c('UKgas','fit1','fit2','fit3')
+matplot(x=UKgasdf[,'t'],y=UKgasdf[,UKgaspred],type = c('h','l','l','l'),lty = 1:4,col =1:4,
+        xlab = 't (month)',ylab = 'value',
+        xlim = c(0,n+nf),
+        ylim = c(min(UKgas) - 1.5*sd(UKgas),
+                 (max(UKgas)+1.5*sd(UKgas))))
+grid()
+legend(0,(min(UKgas)+max(UKgas))/2,bg = NULL,legend = UKgaspred,lwd=2,col = 1:4,lty = 1:4)
+for(i in 1:3){
+  lines(t2,get(paste0('UKgasf',i)),ylab=paste0('fit2_',i), type ='l',col = i+1)
+  #points(t,UKgas,col = 'red')
+  abline(v = n,col = 'purple',lty = 3)
+}
+lines(t,UKgas,col = 'grey')
+
+
+for(i in 1:3) {
+  print(i)
+  print(get(paste0('UKgasf',i)))
+}
+
+```
+
+
+# Filter
+
+## Linear
+
+
+```{r, predictPolynomial}
+predictPolynomial = function(model,t){
+  makeTpower = function(t,p){
+    result = c()
+    for(i in 0:p) result = c(result,t^i)
+    return(result)
+  }
+  coef_model = coefficients(model)
+  n_order = length(coef_model)
+  result = c()
+  for(i in seq_along(t)) result = c(result,sum(makeTpower(t,n_order)*coef_model))
+  result
+}
+
+```
+
+
+
+```{r fitLog}
+fitLin = lm(UKgas ~ t)
+```
+### Linear model and residuals
+```{r}
+visreg::visreg(fitLin)
+resLin = residuals(fitLin)
+plot(resLin,xlab = "t", ylab = "Residual of Linear Model",type = 'h');grid()
+
+```
+
+## Generalized_linear - quadratic
+
+```{r}
+t_sqr=t^2
+fitQuad = lm(UKgas~ t+t_sqr)
+summary(fitQuad)
+visreg::visreg(fitQuad)
+plot3D::scatter3D(t,t_sqr,UKgas)
+visreg2d(fitQuad,'t','t_sqr',plot.type = "persp")
+resLin = residuals(fitQuad)
+plot3D::scatter3D(t,t_sqr,resLin)
+```
+### generalized_linear - cubed
+
+```{r}
+t_cubed = t^3
+fit_cubed = lm(UKgas~ t+t_sqr+t_cubed)
+summary(fit_cubed)
+visreg::visreg(fit_cubed)
+coefficients(fit_cubed)
+
+
+```
+
+
+## Exponential
+
+## Logarithm
+```{r fitLog}
+fitLog = lm(UKgas ~ (t))
+```
+
+
+# Periodicity
+
+```{r fft}
+plot(fft(UKgas))
+require(psd)
+pspectrum(UKgas,plot = TRUE)
+```
+
+# Non-linearity
+
+```{r maxLyapunowExponent}
+
+```
+
+## Fractal properties
+
+```{r fractal}
+#install.packages("fractal")
+#install.packages("tseriesChaos")
+#install.packages("nonlinearTseries")
+#install.packages("timedelay")
+library(timedelay)
+library(nonlinearTseries)
+library(tseriesChaos)
+library(fractal)
+
+determinism(UKgas)
+spaceTime(UKgas)
+
+dim_emb = estimateEmbeddingDim(UKgas)
+print(paste("Estimated embedding dimension",dim_emb))
+
+lag_est = timeLag(UKgas)
+print(paste("Estimation of time lag:",lag_est))
+#lyap_k(UKgas,m =dim_emb ,d =timeLag(UKgas),ref = ceiling(length(UKgas)/3))
+
+n.reference = min(as.integer(round(length(UKgas)/20)), 100)
+ifelse(n.reference>=10,print("Valid"),{message("Length may be insufficient, resetting n.reference to 10");n.reference = 10})
+#lya_est = lyapunov(UKgas, tlag=lag_est, dimension=dim_emb, local.dimension=1, n.reference = n.reference)
+#print(lya_est)
+
+
+```
+
+
+
+```{r fractalDimesion}
+
+#corrDim(UKgas,min.radius = 1/50*sd(UKgas),max.radius = 1/25*sd(UKgas))
+#infoDim(UKgas)
+
+```
+
+```{r entropy}
+#install.packages("pracma")
+library(pracma)
+
+r_vec = seq(from = .01 ,to =1, by=.01)
+
+
+entropy_est = numeric(length(r_vec))
+for(i in seq_along(r_vec)) entropy_est[i]<-approx_entropy(UKgas, edim = dim_emb, r = r_vec[i]*sd(UKgas), elag = lag_est)
+plot(r_vec,entropy_est,xlab = "r / Standard Deviation",ylab = "Estimated Entropy",type = 'b');grid()
+abline(v = r_vec[which.max(entropy_est)])
+max(entropy_est)
+```
+
+
+
